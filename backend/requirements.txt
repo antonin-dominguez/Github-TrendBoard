@@ -1,0 +1,9 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+sqlalchemy==2.0.31
+pydantic==2.7.4
+apscheduler==3.10.4
+requests==2.32.3
+beautifulsoup4==4.12.3
+ollama==0.2.1
+python-dotenv==1.0.1
