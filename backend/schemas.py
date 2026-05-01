@@ -22,7 +22,7 @@ class ItemOut(BaseModel):
     source: str
     title: str
     url: str
-    trending_since: str
+    trending_since: Optional[str]
     score: int
     comments_count: int
     author: Optional[str]

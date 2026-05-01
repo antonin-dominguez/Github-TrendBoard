@@ -1,15 +1,66 @@
+import json
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session, joinedload
 
 from backend.database import get_db
-from backend.models import Item, Analysis
+from backend.models import Item, Analysis, UserSetting
 from backend.schemas import ItemOut
 
 router = APIRouter(prefix="/api/trends", tags=["trends"])
 
 PERIOD_TO_SINCE = {"day": "daily", "week": "weekly", "month": "monthly"}
+PERIOD_DAYS = {"day": 1, "week": 7, "month": 30}
+
+TOPIC_KEYWORDS: dict[str, list[str]] = {
+    "IA/ML": ["ai", "ml", "llm", "gpt", "neural", "model", "machine learning", "deep learning",
+               "transformer", "diffusion", "embedding", "rag", "agent", "inference", "hugging"],
+    "DevOps": ["docker", "kubernetes", "k8s", "ci", "cd", "pipeline", "deploy", "infra",
+                "terraform", "ansible", "helm", "devops", "observability", "monitoring"],
+    "Web": ["react", "vue", "svelte", "next", "nuxt", "frontend", "css", "html", "web",
+             "browser", "tailwind", "typescript", "javascript"],
+    "Sécurité": ["security", "vuln", "cve", "exploit", "auth", "crypto", "pentest",
+                  "firewall", "zero-day", "encryption", "privacy"],
+    "Open Source": ["open source", "open-source", "oss", "foss", "community", "contributor"],
+    "Mobile": ["android", "ios", "flutter", "react native", "swift", "kotlin", "mobile"],
+    "Cloud": ["aws", "gcp", "azure", "cloud", "serverless", "lambda", "s3", "fargate"],
+    "Data": ["database", "sql", "nosql", "postgres", "redis", "kafka", "spark", "dbt",
+              "analytics", "etl", "warehouse", "vector db"],
+    "Outillage": ["cli", "tool", "productivity", "editor", "terminal", "shell", "vim",
+                   "neovim", "plugin", "extension", "automation"],
+}
+
+
+def _get_interests(db: Session) -> dict:
+    setting = db.query(UserSetting).filter(UserSetting.key == "interests").first()
+    if not setting:
+        return {"topics": [], "languages": [], "sources": []}
+    try:
+        return json.loads(setting.value)
+    except json.JSONDecodeError:
+        return {"topics": [], "languages": [], "sources": []}
+
+
+def _interest_boost(item: Item, interests: dict) -> float:
+    boost = 1.0
+    languages = interests.get("languages", [])
+    topics = interests.get("topics", [])
+
+    if item.language and item.language in languages:
+        boost += 0.6
+
+    title_lower = item.title.lower()
+    tags_str = (item.tags or "").lower()
+    for topic in topics:
+        keywords = TOPIC_KEYWORDS.get(topic, [topic.lower()])
+        if any(kw in title_lower or kw in tags_str for kw in keywords):
+            boost += 0.4
+            break  # one topic match is enough
+
+    return boost
 
 
 @router.get("", response_model=list[ItemOut])
@@ -23,7 +74,15 @@ def get_trends(
     db: Session = Depends(get_db),
 ):
     since = PERIOD_TO_SINCE[period]
-    query = db.query(Item).options(joinedload(Item.analysis)).filter(Item.trending_since == since)
+    cutoff = datetime.utcnow() - timedelta(days=PERIOD_DAYS[period])
+
+    # GitHub: filter by trending_since. Other sources: filter by collected_at window.
+    period_filter = or_(
+        and_(Item.source == "github", Item.trending_since == since),
+        and_(Item.source != "github", Item.collected_at >= cutoff),
+    )
+
+    query = db.query(Item).options(joinedload(Item.analysis)).filter(period_filter)
 
     if source:
         query = query.filter(Item.source == source)
@@ -34,8 +93,16 @@ def get_trends(
     if category:
         query = query.join(Analysis).filter(Analysis.category == category)
 
-    items = query.order_by(Item.score.desc()).limit(limit).all()
-    return items
+    # Fetch more than needed to re-rank by interest
+    raw_items = query.order_by(Item.score.desc()).limit(limit * 3).all()
+
+    interests = _get_interests(db)
+    has_prefs = bool(interests.get("topics") or interests.get("languages"))
+
+    if has_prefs:
+        raw_items.sort(key=lambda i: i.score * _interest_boost(i, interests), reverse=True)
+
+    return raw_items[:limit]
 
 
 @router.get("/{item_id}", response_model=ItemOut)
@@ -65,10 +132,8 @@ def get_or_create_analysis(item_id: int, db: Session = Depends(get_db)):
         tags=item.tags or "[]",
     )
 
-    # keywords is already a JSON string coming from analyzer
     keywords = data.get("keywords", "[]")
     if isinstance(keywords, list):
-        import json
         keywords = json.dumps(keywords)
 
     analysis = Analysis(

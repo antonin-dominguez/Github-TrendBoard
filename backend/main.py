@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import init_db, get_db
 from backend.models import Item
-from backend.routers import trends, analysis, favorites
+from backend.routers import trends, analysis, favorites, settings
 from backend import scheduler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
@@ -40,6 +40,7 @@ app.add_middleware(
 app.include_router(trends.router)
 app.include_router(analysis.router)
 app.include_router(favorites.router)
+app.include_router(settings.router)
 
 
 @app.post("/api/refresh", tags=["admin"])
@@ -55,7 +56,7 @@ def get_stats(db: Session = Depends(get_db)):
     today = db.query(Item).filter(Item.collected_at >= today_cutoff).count()
 
     sources = {}
-    for source in ["github", "hackernews", "reddit", "devto"]:
+    for source in ["github", "hackernews", "reddit", "devto", "huggingface"]:
         sources[source] = db.query(Item).filter(Item.source == source).count()
 
     return {

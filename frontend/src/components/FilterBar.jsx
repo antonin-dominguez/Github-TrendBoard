@@ -1,6 +1,15 @@
 import { useState } from "react";
 
-const LANGUAGES = ["", "Python", "JavaScript", "TypeScript", "Go", "Rust", "Java", "C++", "C", "Ruby", "Swift", "Kotlin"];
+const SOURCES = [
+  { value: "", label: "Toutes les sources" },
+  { value: "github", label: "GitHub" },
+  { value: "hackernews", label: "Hacker News" },
+  { value: "reddit", label: "Reddit" },
+  { value: "devto", label: "Dev.to" },
+  { value: "huggingface", label: "HuggingFace" },
+];
+
+const LANGUAGES = ["", "Python", "JavaScript", "TypeScript", "Go", "Rust", "Java", "C++", "C", "Ruby", "Swift", "Kotlin", "Shell", "Zig"];
 
 export default function FilterBar({ filters, onChange }) {
   const [search, setSearch] = useState(filters.search || "");
@@ -19,17 +28,27 @@ export default function FilterBar({ filters, onChange }) {
         </svg>
         <input
           type="text"
-          placeholder="Rechercher un repo..."
+          placeholder="Rechercher..."
           value={search}
           onChange={handleSearch}
-          className="pl-9 pr-4 py-2 text-sm bg-white/[0.04] border border-white/[0.08] text-slate-300 placeholder-slate-600 rounded-xl w-56 focus:outline-none focus:border-cyan-500/40 focus:bg-white/[0.06] transition-all"
+          className="pl-9 pr-4 py-2 text-sm bg-white/[0.04] border border-white/[0.08] text-slate-300 placeholder-slate-600 rounded-xl w-52 focus:outline-none focus:border-cyan-500/40 focus:bg-white/[0.06] transition-all"
         />
       </div>
 
       <select
+        value={filters.source || ""}
+        onChange={(e) => onChange({ ...filters, source: e.target.value })}
+        className="py-2 px-3 text-sm bg-white/[0.04] border border-white/[0.08] text-slate-400 rounded-xl focus:outline-none focus:border-cyan-500/40 transition-all cursor-pointer"
+      >
+        {SOURCES.map((s) => (
+          <option key={s.value} value={s.value}>{s.label}</option>
+        ))}
+      </select>
+
+      <select
         value={filters.language || ""}
         onChange={(e) => onChange({ ...filters, language: e.target.value })}
-        className="py-2 px-3 text-sm bg-white/[0.04] border border-white/[0.08] text-slate-400 rounded-xl focus:outline-none focus:border-cyan-500/40 transition-all appearance-none cursor-pointer"
+        className="py-2 px-3 text-sm bg-white/[0.04] border border-white/[0.08] text-slate-400 rounded-xl focus:outline-none focus:border-cyan-500/40 transition-all cursor-pointer"
       >
         <option value="">Tous les langages</option>
         {LANGUAGES.slice(1).map((l) => (

@@ -23,11 +23,19 @@ Réponds avec exactement ce JSON (remplace les valeurs) :
 
 Catégories possibles : IA/ML, DevOps, Web, Sécurité, Open Source, Mobile, Cloud, Data, Outillage, Autre"""
 
-SUMMARY_PROMPT = """Tu es un expert en veille technologique. Voici les {count} dépôts GitHub les plus populaires sur la période : {period}.
+SUMMARY_PROMPT = """Tu es un expert en veille technologique. Voici les {count} contenus les plus populaires sur {source_label} pour la période : {period}.
 
 {items_text}
 
-Génère un résumé exécutif en français (5-8 phrases) qui synthétise les grandes tendances, les thèmes récurrents et les points saillants. Réponds uniquement avec le texte, sans titre ni formatage."""
+Génère un résumé exécutif en français (5-8 phrases) qui synthétise les grandes tendances, les thèmes récurrents et les points saillants spécifiques à {source_label}. Réponds uniquement avec le texte du résumé, sans titre ni formatage."""
+
+SOURCE_LABELS = {
+    "github":      "GitHub Trending",
+    "hackernews":  "Hacker News",
+    "reddit":      "Reddit",
+    "devto":       "Dev.to",
+    "huggingface": "HuggingFace",
+}
 
 
 def _get_raw(response) -> str:
@@ -95,12 +103,19 @@ def analyze_item(title: str, source: str, url: str, tags: str = "[]") -> dict:
         raise
 
 
-def generate_period_summary(items: list[dict], period: str) -> str:
+def generate_period_summary(items: list[dict], period: str, source: str | None = None) -> str:
+    source_label = SOURCE_LABELS.get(source, "toutes les sources") if source else "toutes les sources"
+
     items_text = "\n".join(
-        f"- {item['title']} (★ {item['score']})"
+        f"- [{item['source'].upper()}] {item['title']} (score: {item['score']})"
         for item in items[:20]
     )
-    prompt = SUMMARY_PROMPT.format(count=len(items), period=period, items_text=items_text)
+    prompt = SUMMARY_PROMPT.format(
+        count=len(items),
+        period=period,
+        source_label=source_label,
+        items_text=items_text,
+    )
     try:
         response = _client.generate(model=OLLAMA_MODEL, prompt=prompt)
         return _get_raw(response).strip()

@@ -14,11 +14,12 @@ class Item(Base):
     source = Column(Text, nullable=False)
     title = Column(Text, nullable=False)
     url = Column(Text, nullable=False, index=True)
-    trending_since = Column(Text, nullable=False, default="daily")  # daily / weekly / monthly
+    # NULL for non-GitHub sources; "daily"/"weekly"/"monthly" for GitHub
+    trending_since = Column(Text, nullable=True)
     score = Column(Integer, default=0)
     comments_count = Column(Integer, default=0)
     author = Column(Text)
-    tags = Column(Text)  # JSON array
+    tags = Column(Text)   # JSON array
     language = Column(Text)
     published_at = Column(DateTime)
     collected_at = Column(DateTime, default=datetime.utcnow)
@@ -35,7 +36,7 @@ class Analysis(Base):
     summary = Column(Text)
     relevance_score = Column(Integer)
     category = Column(Text)
-    keywords = Column(Text)  # JSON array
+    keywords = Column(Text)   # JSON array
     why_it_matters = Column(Text)
     model_used = Column(Text)
     generated_at = Column(DateTime, default=datetime.utcnow)
@@ -52,3 +53,10 @@ class Favorite(Base):
     note = Column(Text)
 
     item = relationship("Item", back_populates="favorite")
+
+
+class UserSetting(Base):
+    __tablename__ = "user_settings"
+
+    key = Column(Text, primary_key=True)
+    value = Column(Text, nullable=False)  # JSON

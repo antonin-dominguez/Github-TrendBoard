@@ -1,59 +1,61 @@
 import { useState, useEffect, useCallback } from "react";
-import { fetchTrends, fetchStats, triggerRefresh, fetchFavorites } from "../api";
+import { Search, SlidersHorizontal } from "lucide-react";
+import { fetchTrends, fetchFavorites } from "../api";
 import TimeSelector from "../components/TimeSelector";
-import FilterBar from "../components/FilterBar";
-import TrendCard from "../components/TrendCard";
+import TrendItem from "../components/TrendItem";
 import AISummary from "../components/AISummary";
 
-function StatPill({ label, value, accent }) {
+const LANGUAGES = ["", "Python", "JavaScript", "TypeScript", "Go", "Rust", "Java", "C++", "C", "Ruby", "Swift", "Kotlin", "Shell", "Zig"];
+
+function Skeleton() {
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-      <span className={`text-xs font-semibold ${accent}`}>{value}</span>
-      <span className="text-xs text-slate-600">{label}</span>
+    <div className="surface px-4 py-3.5 flex gap-3.5 animate-pulse">
+      <div className="w-9 h-9 rounded-full bg-bg-overlay shrink-0" />
+      <div className="flex-1 space-y-2 pt-0.5">
+        <div className="flex gap-2">
+          <div className="h-4 w-12 rounded bg-bg-overlay" />
+          <div className="h-4 w-24 rounded bg-bg-overlay" />
+        </div>
+        <div className="h-4 w-48 rounded bg-bg-overlay" />
+        <div className="h-3 w-20 rounded bg-bg-overlay" />
+      </div>
     </div>
   );
 }
 
-export default function Dashboard() {
+export default function Dashboard({ source }) {
   const [period, setPeriod] = useState("day");
-  const [filters, setFilters] = useState({});
+  const [search, setSearch] = useState("");
+  const [language, setLanguage] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const [items, setItems] = useState([]);
-  const [stats, setStats] = useState(null);
   const [favorites, setFavorites] = useState({});
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [trends, statsData, favData] = await Promise.all([
-        fetchTrends({ period, ...filters, limit: 50 }),
-        fetchStats(),
+      const params = { period, limit: 60 };
+      if (source)   params.source = source;
+      if (language) params.language = language;
+      if (search && search.length >= 2) params.search = search;
+
+      const [trends, favData] = await Promise.all([
+        fetchTrends(params),
         fetchFavorites(),
       ]);
       setItems(trends);
-      setStats(statsData);
       const favMap = {};
       favData.forEach((f) => { favMap[f.item_id] = f.id; });
       setFavorites(favMap);
     } catch (e) {
-      console.error("Load failed", e);
+      console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [period, filters]);
+  }, [period, source, language, search]);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  async function handleRefresh() {
-    setRefreshing(true);
-    try {
-      await triggerRefresh();
-      await loadData();
-    } finally {
-      setRefreshing(false);
-    }
-  }
 
   function handleFavoriteToggle(itemId, favId) {
     setFavorites((prev) => {
@@ -64,79 +66,81 @@ export default function Dashboard() {
     });
   }
 
-  const lastCollect = stats?.last_collection
-    ? new Date(stats.last_collection + "Z").toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
-    : null;
+  const PERIOD_LABELS = { day: "Aujourd'hui", week: "Cette semaine", month: "Ce mois" };
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Top bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-bold tracking-tight gradient-text">Tendances GitHub</h1>
-          {lastCollect && (
-            <p className="text-xs text-slate-600">Dernière collecte à {lastCollect}</p>
-          )}
+    <div className="flex flex-col gap-4">
+      {/* Header row */}
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-heading text-lg">
+            {source ? source.charAt(0).toUpperCase() + source.slice(1) : "Tendances"}
+          </h1>
+          <p className="text-micro mt-0.5">{PERIOD_LABELS[period]} · {items.length} résultats</p>
         </div>
-        <div className="flex items-center gap-3">
-          {stats && (
-            <div className="flex gap-2">
-              <StatPill label="repos" value={stats.total_items} accent="text-cyan-400" />
-              <StatPill label="aujourd'hui" value={stats.items_today} accent="text-violet-400" />
-            </div>
-          )}
+        <div className="flex items-center gap-2">
+          <TimeSelector value={period} onChange={setPeriod} />
           <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="btn-ghost flex items-center gap-1.5 disabled:opacity-40"
+            onClick={() => setShowFilters((v) => !v)}
+            className={`btn-ghost-sm border border-border rounded-lg ${showFilters ? "text-indigo-400 border-indigo-500/30 bg-indigo-500/5" : ""}`}
           >
-            <svg className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-            </svg>
-            {refreshing ? "Collecte..." : "Actualiser"}
+            <SlidersHorizontal className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <TimeSelector value={period} onChange={setPeriod} />
-        <FilterBar filters={filters} onChange={setFilters} />
+      {/* Search + filters */}
+      <div className="flex flex-col gap-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600" />
+          <input
+            type="text"
+            placeholder="Rechercher..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 text-sm bg-bg-subtle border border-border text-slate-300 placeholder-slate-600 rounded-xl focus:outline-none focus:border-indigo-500/40 transition-all"
+          />
+        </div>
+
+        {showFilters && (
+          <div className="flex gap-2 animate-slide-down">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="py-1.5 px-3 text-sm bg-bg-subtle border border-border text-slate-400 rounded-lg focus:outline-none focus:border-indigo-500/40 transition-all cursor-pointer"
+            >
+              <option value="">Tous les langages</option>
+              {LANGUAGES.slice(1).map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* AI Summary */}
-      <AISummary period={period} />
+      <AISummary period={period} source={source || undefined} />
 
-      {/* Grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {Array.from({ length: 9 }).map((_, i) => (
-            <div key={i} className="rounded-2xl bg-white/[0.02] border border-white/[0.04] h-44 animate-pulse" />
-          ))}
-        </div>
-      ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-2xl">
-            📭
-          </div>
-          <p className="text-slate-400 font-medium">Aucune tendance trouvée</p>
-          <p className="text-slate-600 text-sm">Modifiez les filtres ou cliquez sur Actualiser.</p>
-        </div>
-      ) : (
-        <>
-          <p className="text-xs text-slate-600">{items.length} résultat{items.length > 1 ? "s" : ""}</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {items.map((item) => (
-              <TrendCard
-                key={item.id}
-                item={item}
-                favoriteId={favorites[item.id] ?? null}
-                onFavoriteToggle={handleFavoriteToggle}
-              />
-            ))}
-          </div>
-        </>
-      )}
+      {/* Feed */}
+      <div className="flex flex-col gap-2">
+        {loading
+          ? Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} />)
+          : items.length === 0
+          ? (
+            <div className="surface flex flex-col items-center justify-center py-20 gap-3 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-bg-overlay flex items-center justify-center text-2xl">📭</div>
+              <p className="text-slate-400 font-medium text-sm">Aucune tendance trouvée</p>
+              <p className="text-micro">Modifiez les filtres ou actualisez les données.</p>
+            </div>
+          )
+          : items.map((item) => (
+            <TrendItem
+              key={item.id}
+              item={item}
+              favoriteId={favorites[item.id] ?? null}
+              onFavoriteToggle={handleFavoriteToggle}
+            />
+          ))
+        }
+      </div>
     </div>
   );
 }
