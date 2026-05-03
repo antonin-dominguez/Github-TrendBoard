@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Sun, Moon } from "lucide-react";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "./components/ui/Tooltip";
 import Sidebar from "./components/Sidebar";
@@ -6,9 +7,10 @@ import Dashboard from "./pages/Dashboard";
 import Favorites from "./pages/Favorites";
 import Settings from "./pages/Settings";
 import { fetchStats, triggerRefresh } from "./api";
-import { useEffect } from "react";
+import { useTheme } from "./ThemeContext";
 
 export default function App() {
+  const { theme, toggle } = useTheme();
   const [page, setPage] = useState("dashboard");
   const [source, setSource] = useState("");
   const [stats, setStats] = useState(null);
@@ -43,9 +45,7 @@ export default function App() {
         {/* Top bar */}
         <header className="h-14 border-b border-border bg-bg-base/80 backdrop-blur-md sticky top-0 z-20 flex items-center px-6 gap-4">
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[11px] font-bold text-white shadow-glow">
-              T
-            </div>
+            <img src="/favicon.png" alt="TrendBoard" className="w-6 h-6 rounded-md" />
             <span className="text-sm font-semibold text-slate-200 tracking-tight">TrendBoard</span>
           </div>
           <div className="flex-1" />
@@ -57,6 +57,16 @@ export default function App() {
               ))}
             </div>
           )}
+          <button
+            onClick={toggle}
+            className="btn-ghost-sm border border-border rounded-lg ml-2"
+            title={theme === "dark" ? "Mode clair" : "Mode sombre"}
+          >
+            {theme === "dark"
+              ? <Sun className="w-3.5 h-3.5" />
+              : <Moon className="w-3.5 h-3.5" />
+            }
+          </button>
         </header>
 
         {/* Layout */}

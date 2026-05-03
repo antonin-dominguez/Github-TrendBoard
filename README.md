@@ -1,5 +1,7 @@
 # TrendBoard
 
+![TrendBoard](assets/banner_1200x400.png)
+
 Application de veille tech locale — agrège et analyse les tendances de **GitHub**, **Hacker News**, **Reddit**, **Dev.to** et **HuggingFace**, enrichies par un LLM local via **Ollama**.
 
 ## Fonctionnalités
